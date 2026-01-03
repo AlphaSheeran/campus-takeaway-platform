@@ -108,3 +108,34 @@ class AddressManageView(View):
             return JsonResponse({"code": 0, "msg": str(e)})
         except Exception as e:
             return JsonResponse({"code": 0, "msg": f"地址操作失败：{str(e)}"})
+        
+class MerchantRegisterView(View):
+    """商家注册视图"""
+    def post(self, request):
+        try:
+            # 获取前端参数
+            username = request.POST.get("username")
+            password = request.POST.get("password")
+            name = request.POST.get("name")
+            category = request.POST.get("category")
+            contact_phone = request.POST.get("contact_phone")
+            
+            # 空值校验
+            if not all([username, password, name, category, contact_phone]):
+                return JsonResponse({"code": 0, "msg": "所有参数不能为空"})
+            
+            # 检查商家账号是否已存在
+            if Merchant.objects.filter(username=username).exists():
+                return JsonResponse({"code": 0, "msg": "商家账号已存在"})
+            
+            # 创建商家（默认待审核状态）
+            Merchant.objects.create(
+                username=username,
+                password=password,  # 暂未加密，后续可优化
+                name=name,
+                category=category,
+                contact_phone=contact_phone
+            )
+            return JsonResponse({"code": 1, "msg": "注册成功，请等待管理员审核"})
+        except Exception as e:
+            return JsonResponse({"code": 0, "msg": f"注册失败：{str(e)}"})

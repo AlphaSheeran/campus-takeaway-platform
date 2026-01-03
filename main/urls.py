@@ -6,3 +6,7 @@ urlpatterns = [
     path("login/", UserLoginView.as_view(), name="user_login"),
     path("address/manage/", AddressManageView.as_view(), name="address_manage"),
 ]
+
+urlpatterns = [
+    path("register/", MerchantRegisterView.as_view(), name="merchant_register"),
+]

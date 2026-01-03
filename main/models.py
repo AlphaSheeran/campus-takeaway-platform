@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import re
 import uuid
 from datetime import datetime
-
+from django.db import models
 # -------------------------- 用户模块 --------------------------
 class User(models.Model):
     """用户模型"""
@@ -125,4 +125,26 @@ class OrderItem(models.Model):
     class Meta:
         db_table = "ct_order_item"
         verbose_name = "订单项"
+        verbose_name_plural = verbose_name
+
+
+
+class Merchant(models.Model):
+    """商家模型"""
+    MERCHANT_STATUS = (
+        (0, "待审核"),
+        (1, "审核通过"),
+        (2, "审核驳回")
+    )
+    username = models.CharField(max_length=50, unique=True, verbose_name="商家账号")
+    password = models.CharField(max_length=100, verbose_name="密码")
+    name = models.CharField(max_length=100, verbose_name="店铺名称")
+    category = models.CharField(max_length=50, verbose_name="店铺分类（快餐/奶茶等）")
+    contact_phone = models.CharField(max_length=11, verbose_name="联系电话")
+    status = models.IntegerField(choices=MERCHANT_STATUS, default=0, verbose_name="审核状态")
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        db_table = "ct_merchant"
+        verbose_name = "商家"
         verbose_name_plural = verbose_name
