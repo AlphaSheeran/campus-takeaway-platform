@@ -130,7 +130,10 @@ class OrderItem(models.Model):
 
 
 class Merchant(models.Model):
-    """商家模型"""
+    """
+    商家模型
+    存储商家基础信息与审核状态
+    """
     MERCHANT_STATUS = (
         (0, "待审核"),
         (1, "审核通过"),
@@ -139,8 +142,8 @@ class Merchant(models.Model):
     username = models.CharField(max_length=50, unique=True, verbose_name="商家账号")
     password = models.CharField(max_length=100, verbose_name="密码")
     name = models.CharField(max_length=100, verbose_name="店铺名称")
-    category = models.CharField(max_length=50, verbose_name="店铺分类（快餐/奶茶等）")
-    contact_phone = models.CharField(max_length=11, verbose_name="联系电话")
+    category = models.CharField(max_length=50, verbose_name="店铺分类（快餐/奶茶/小吃等）")
+    contact_phone = models.CharField(max_length=11, verbose_name="店铺联系电话")
     status = models.IntegerField(choices=MERCHANT_STATUS, default=0, verbose_name="审核状态")
     create_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
@@ -149,8 +152,26 @@ class Merchant(models.Model):
         verbose_name = "商家"
         verbose_name_plural = verbose_name
 
+    def update_audit_status(self, target_status: int, reason: str = "") -> None:
+        """
+        更新商家审核状态
+        :param target_status: 目标状态（0/1/2）
+        :param reason: 驳回原因（仅状态为2时必填）
+        """
+        if target_status not in [0,1,2]:
+            raise ValueError("审核状态值不合法（仅支持0/1/2）")
+        if target_status == 2 and not reason:
+            raise ValueError("驳回商家需填写驳回原因")
+        
+        self.status = target_status
+        # 扩展：可添加audit_reason字段存储驳回原因，此处简化
+        self.save(update_fields=["status"])
+
 class Dish(models.Model):
-    """菜品模型"""
+    """
+    菜品模型
+    存储商家菜品信息，关联商家表
+    """
     DISH_STATUS = (
         (0, "下架"),
         (1, "上架")
@@ -174,14 +195,15 @@ class Dish(models.Model):
 
     def reduce_stock(self, quantity: int) -> bool:
         """
-        扣减库存（修复：判断负数）
-        :param quantity: 扣减数量
-        :return: 扣减成功返回True，失败返回False
+        扣减库存（防负数）
+        :param quantity: 扣减数量（需>0）
+        :return: 扣减成功返回True
+        :raise ValueError: 数量≤0或库存不足时抛出异常
         """
         if quantity <= 0:
             raise ValueError("扣减数量必须大于0")
         if self.stock < quantity:
-            raise ValueError("库存不足，无法扣减")
+            raise ValueError(f"库存不足（当前库存：{self.stock}，需扣减：{quantity}）")
         self.stock -= quantity
         self.save(update_fields=["stock"])
         return True

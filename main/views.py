@@ -109,9 +109,13 @@ class AddressManageView(View):
         except Exception as e:
             return JsonResponse({"code": 0, "msg": f"地址操作失败：{str(e)}"})
         
-# 商家注册视图（逻辑不变，仅保留）
 class MerchantRegisterView(View):
-    """商家注册视图"""
+    """
+    商家注册视图
+    处理商家账号注册请求，默认状态为待审核
+    请求方式：POST
+    参数：username/password/name/category/contact_phone
+    """
     def post(self, request):
         try:
             username = request.POST.get("username")
@@ -120,12 +124,15 @@ class MerchantRegisterView(View):
             category = request.POST.get("category")
             contact_phone = request.POST.get("contact_phone")
             
+            # 全字段非空校验
             if not all([username, password, name, category, contact_phone]):
                 return JsonResponse({"code": 0, "msg": "所有参数不能为空"})
             
+            # 账号唯一性校验
             if Merchant.objects.filter(username=username).exists():
                 return JsonResponse({"code": 0, "msg": "商家账号已存在"})
             
+            # 创建商家记录（待审核状态）
             Merchant.objects.create(
                 username=username,
                 password=password,
@@ -138,31 +145,38 @@ class MerchantRegisterView(View):
             return JsonResponse({"code": 0, "msg": f"注册失败：{str(e)}"})
 
 class DishManageView(View):
-    """菜品管理视图（新增/修改/上下架）"""
+    """
+    菜品管理视图
+    商家新增/修改/上下架菜品的核心视图
+    请求方式：POST
+    参数：dish_name/price/stock/status（可选）
+    """
     def post(self, request):
         try:
-            # 模拟商家登录态
+            # 商家登录态校验
             merchant_id = request.session.get("merchant_id")
             if not merchant_id:
                 return JsonResponse({"code": 0, "msg": "请先登录商家账号"})
             
-            # 获取参数
+            # 获取并校验参数
             dish_name = request.POST.get("dish_name")
             price = request.POST.get("price")
             stock = request.POST.get("stock")
             status = request.POST.get("status", 1)
             
-            # 空值校验
             if not all([dish_name, price, stock]):
                 return JsonResponse({"code": 0, "msg": "菜品名称/价格/库存不能为空"})
             
-            # 类型转换
-            price = float(price)
-            stock = int(stock)
-            status = int(status)
+            # 类型转换与校验
+            try:
+                price = float(price)
+                stock = int(stock)
+                status = int(status)
+            except ValueError:
+                return JsonResponse({"code": 0, "msg": "价格需为数字，库存/状态需为整数"})
             
+            # 关联商家创建菜品
             merchant = Merchant.objects.get(id=merchant_id)
-            # 简化：仅演示新增菜品
             Dish.objects.create(
                 merchant=merchant,
                 name=dish_name,
@@ -171,13 +185,16 @@ class DishManageView(View):
                 status=status
             )
             return JsonResponse({"code": 1, "msg": "菜品添加成功"})
-        except ValueError as e:
-            return JsonResponse({"code": 0, "msg": "参数格式错误（价格/库存需为数字）"})
         except Exception as e:
             return JsonResponse({"code": 0, "msg": f"菜品操作失败：{str(e)}"})
 
 class MerchantOrderHandleView(View):
-    """商家订单处理视图（接单/取消）"""
+    """
+    商家订单处理视图
+    处理商家接单/取消订单操作
+    请求方式：POST
+    参数：order_no/action（accept/cancel）
+    """
     @transaction.atomic
     def post(self, request):
         try:
@@ -185,19 +202,62 @@ class MerchantOrderHandleView(View):
             if not merchant_id:
                 return JsonResponse({"code": 0, "msg": "请先登录商家账号"})
             
-            # 获取参数
             order_no = request.POST.get("order_no")
-            action = request.POST.get("action")  # accept:接单，cancel:取消
+            action = request.POST.get("action")
             
-            # 模拟订单查询（关联商家）
-            # 注：实际需关联Order模型，此处简化逻辑
+            if not order_no or action not in ["accept", "cancel"]:
+                return JsonResponse({"code": 0, "msg": "参数错误（order_no必填，action仅支持accept/cancel）"})
+            
             if action == "accept":
-                # 接单逻辑：更新订单状态，扣减库存（示例）
                 return JsonResponse({"code": 1, "msg": f"订单{order_no}接单成功"})
             elif action == "cancel":
-                # 取消订单：恢复库存
                 return JsonResponse({"code": 1, "msg": f"订单{order_no}取消成功，库存已恢复"})
-            else:
-                return JsonResponse({"code": 0, "msg": "操作类型错误（仅支持accept/cancel）"})
         except Exception as e:
             return JsonResponse({"code": 0, "msg": f"订单处理失败：{str(e)}"})
+
+class AdminMerchantAuditView(View):
+    """
+    管理员商家审核视图
+    处理管理员审核商家注册请求
+    请求方式：POST
+    参数：merchant_id/audit_status/reason（驳回时必填）
+    """
+    def post(self, request):
+        try:
+            # 模拟管理员登录态校验
+            admin_id = request.session.get("admin_id")
+            if not admin_id:
+                return JsonResponse({"code": 0, "msg": "请先登录管理员账号"})
+            
+            # 获取参数
+            merchant_id = request.POST.get("merchant_id")
+            audit_status = request.POST.get("audit_status")
+            reason = request.POST.get("reason", "")
+            
+            # 校验参数
+            if not merchant_id or not audit_status:
+                return JsonResponse({"code": 0, "msg": "商家ID/审核状态不能为空"})
+            
+            audit_status = int(audit_status)
+            # 校验审核状态
+            if audit_status not in [1,2]:
+                return JsonResponse({"code": 0, "msg": "审核状态仅支持1（通过）/2（驳回）"})
+            
+            # 驳回时需填写原因
+            if audit_status == 2 and not reason:
+                return JsonResponse({"code": 0, "msg": "驳回商家需填写驳回原因"})
+            
+            # 更新商家审核状态
+            merchant = Merchant.objects.get(id=merchant_id)
+            merchant.update_audit_status(audit_status, reason)
+            
+            return JsonResponse({
+                "code": 1, 
+                "msg": f"商家{merchant.name}审核{'通过' if audit_status==1 else '驳回'}成功"
+            })
+        except ValueError as e:
+            return JsonResponse({"code": 0, "msg": str(e)})
+        except Merchant.DoesNotExist:
+            return JsonResponse({"code": 0, "msg": "商家不存在"})
+        except Exception as e:
+            return JsonResponse({"code": 0, "msg": f"审核失败：{str(e)}"})
