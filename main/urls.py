@@ -10,3 +10,12 @@ urlpatterns = [
 urlpatterns = [
     path("register/", MerchantRegisterView.as_view(), name="merchant_register"),
 ]
+
+from .views import MerchantRegisterView, DishManageView, MerchantOrderHandleView
+
+urlpatterns = [
+    path("register/", MerchantRegisterView.as_view(), name="merchant_register"),
+    path("dish/manage/", DishManageView.as_view(), name="dish_manage"),
+    path("order/handle/", MerchantOrderHandleView.as_view(), name="merchant_order_handle"),
+]
+ 

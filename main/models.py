@@ -148,3 +148,40 @@ class Merchant(models.Model):
         db_table = "ct_merchant"
         verbose_name = "商家"
         verbose_name_plural = verbose_name
+
+class Dish(models.Model):
+    """菜品模型"""
+    DISH_STATUS = (
+        (0, "下架"),
+        (1, "上架")
+    )
+    merchant = models.ForeignKey(
+        Merchant, 
+        on_delete=models.CASCADE, 
+        related_name="dishes", 
+        verbose_name="所属商家"
+    )
+    name = models.CharField(max_length=100, verbose_name="菜品名称")
+    price = models.DecimalField(max_digits=8, decimal_places=2, verbose_name="菜品单价")
+    stock = models.IntegerField(default=0, verbose_name="菜品库存")
+    status = models.IntegerField(choices=DISH_STATUS, default=1, verbose_name="上下架状态")
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        db_table = "ct_dish"
+        verbose_name = "菜品"
+        verbose_name_plural = verbose_name
+
+    def reduce_stock(self, quantity: int) -> bool:
+        """
+        扣减库存（修复：判断负数）
+        :param quantity: 扣减数量
+        :return: 扣减成功返回True，失败返回False
+        """
+        if quantity <= 0:
+            raise ValueError("扣减数量必须大于0")
+        if self.stock < quantity:
+            raise ValueError("库存不足，无法扣减")
+        self.stock -= quantity
+        self.save(update_fields=["stock"])
+        return True

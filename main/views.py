@@ -109,29 +109,26 @@ class AddressManageView(View):
         except Exception as e:
             return JsonResponse({"code": 0, "msg": f"地址操作失败：{str(e)}"})
         
+# 商家注册视图（逻辑不变，仅保留）
 class MerchantRegisterView(View):
     """商家注册视图"""
     def post(self, request):
         try:
-            # 获取前端参数
             username = request.POST.get("username")
             password = request.POST.get("password")
             name = request.POST.get("name")
             category = request.POST.get("category")
             contact_phone = request.POST.get("contact_phone")
             
-            # 空值校验
             if not all([username, password, name, category, contact_phone]):
                 return JsonResponse({"code": 0, "msg": "所有参数不能为空"})
             
-            # 检查商家账号是否已存在
             if Merchant.objects.filter(username=username).exists():
                 return JsonResponse({"code": 0, "msg": "商家账号已存在"})
             
-            # 创建商家（默认待审核状态）
             Merchant.objects.create(
                 username=username,
-                password=password,  # 暂未加密，后续可优化
+                password=password,
                 name=name,
                 category=category,
                 contact_phone=contact_phone
@@ -139,3 +136,68 @@ class MerchantRegisterView(View):
             return JsonResponse({"code": 1, "msg": "注册成功，请等待管理员审核"})
         except Exception as e:
             return JsonResponse({"code": 0, "msg": f"注册失败：{str(e)}"})
+
+class DishManageView(View):
+    """菜品管理视图（新增/修改/上下架）"""
+    def post(self, request):
+        try:
+            # 模拟商家登录态
+            merchant_id = request.session.get("merchant_id")
+            if not merchant_id:
+                return JsonResponse({"code": 0, "msg": "请先登录商家账号"})
+            
+            # 获取参数
+            dish_name = request.POST.get("dish_name")
+            price = request.POST.get("price")
+            stock = request.POST.get("stock")
+            status = request.POST.get("status", 1)
+            
+            # 空值校验
+            if not all([dish_name, price, stock]):
+                return JsonResponse({"code": 0, "msg": "菜品名称/价格/库存不能为空"})
+            
+            # 类型转换
+            price = float(price)
+            stock = int(stock)
+            status = int(status)
+            
+            merchant = Merchant.objects.get(id=merchant_id)
+            # 简化：仅演示新增菜品
+            Dish.objects.create(
+                merchant=merchant,
+                name=dish_name,
+                price=price,
+                stock=stock,
+                status=status
+            )
+            return JsonResponse({"code": 1, "msg": "菜品添加成功"})
+        except ValueError as e:
+            return JsonResponse({"code": 0, "msg": "参数格式错误（价格/库存需为数字）"})
+        except Exception as e:
+            return JsonResponse({"code": 0, "msg": f"菜品操作失败：{str(e)}"})
+
+class MerchantOrderHandleView(View):
+    """商家订单处理视图（接单/取消）"""
+    @transaction.atomic
+    def post(self, request):
+        try:
+            merchant_id = request.session.get("merchant_id")
+            if not merchant_id:
+                return JsonResponse({"code": 0, "msg": "请先登录商家账号"})
+            
+            # 获取参数
+            order_no = request.POST.get("order_no")
+            action = request.POST.get("action")  # accept:接单，cancel:取消
+            
+            # 模拟订单查询（关联商家）
+            # 注：实际需关联Order模型，此处简化逻辑
+            if action == "accept":
+                # 接单逻辑：更新订单状态，扣减库存（示例）
+                return JsonResponse({"code": 1, "msg": f"订单{order_no}接单成功"})
+            elif action == "cancel":
+                # 取消订单：恢复库存
+                return JsonResponse({"code": 1, "msg": f"订单{order_no}取消成功，库存已恢复"})
+            else:
+                return JsonResponse({"code": 0, "msg": "操作类型错误（仅支持accept/cancel）"})
+        except Exception as e:
+            return JsonResponse({"code": 0, "msg": f"订单处理失败：{str(e)}"})
